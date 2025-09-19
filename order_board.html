@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Order Status Board</title>
+  <style>
+    #logo-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background-color: #fafafa;
+      padding: 10px 0;
+      text-align: center;
+      z-index: 1000;
+      border-bottom: 1px solid #ccc;
+    }
+
+    #logo-bar img {
+      max-height: 80px;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: url('/static/background.png') no-repeat center center fixed;
+      background-size: cover;
+      display: flex;
+      justify-content: space-around;
+      padding: 140px 20px 20px;
+      margin: 0;
+    }
+
+    .column {
+      width: 45%;
+      border: 1px solid #ccc;
+      padding: 20px;
+      background-color: #ffffffee; /* slightly transparent */
+      border-radius: 10px;
+    }
+
+    .column h2 {
+      text-align: center;
+    }
+
+    .order-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .order {
+      font-size: 36px;
+      padding: 20px;
+      background-color: #e0f7fa;
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .order:hover {
+      background-color: #b2ebf2;
+    }
+  </style>
+</head>
+<body>
+  <div id="logo-bar">
+    <img src="/static/logo.png" alt="The Common Man Roadside Logo" />
+  </div>
+
+  <div class="column">
+    <h2>Preparing</h2>
+    <div class="order-grid" id="preparing-grid"></div>
+  </div>
+  <div class="column">
+    <h2>Ready</h2>
+    <div class="order-grid" id="ready-grid"></div>
+  </div>
+
+  <script>
+    const readyTimers = {};
+
+    async function fetchOrders() {
+      try {
+        const response = await fetch('http://localhost:5000/orders');
+        const orders = await response.json();
+
+        const preparingGrid = document.getElementById('preparing-grid');
+        const readyGrid = document.getElementById('ready-grid');
+        preparingGrid.innerHTML = '';
+        readyGrid.innerHTML = '';
+
+        const now = new Date();
+
+        [...orders].reverse().forEach(order => {
+          const el = document.createElement('div');
+          el.className = 'order';
+          el.textContent = `${order.orderNumber}`;
+          el.onclick = () => clearOrder(order.orderNumber);
+
+          const rawTime =
+            order.status === 3
+              ? order.statusChangeDateTimeOffset || order.timestamp || ""
+              : order.timestamp || order.statusChangeDateTimeOffset || "";
+
+          const parsedTime = new Date(rawTime.replace(" ", "T"));
+
+          if (isNaN(parsedTime.getTime())) {
+            console.warn("Invalid date for order:", order.orderNumber);
+            return;
+          }
+
+          const minutesSinceChange = (now - parsedTime) / 1000 / 60;
+
+          if (order.status === 1) {
+            preparingGrid.appendChild(el);
+          } else if (order.status === 3) {
+            if (minutesSinceChange < 10) {
+              readyGrid.appendChild(el);
+              if (!readyTimers[order.orderNumber]) {
+                readyTimers[order.orderNumber] = setTimeout(() => {
+                  clearOrder(order.orderNumber);
+                }, (10 - minutesSinceChange) * 60 * 1000);
+              }
+            } else {
+              clearOrder(order.orderNumber);
+            }
+          }
+        });
+      } catch (err) {
+        console.error('Failed to fetch orders:', err);
+      }
+    }
+
+    async function clearOrder(orderNumber) {
+      try {
+        await fetch(`http://localhost:5000/orders/${orderNumber}`, { method: 'DELETE' });
+        delete readyTimers[orderNumber];
+        fetchOrders();
+      } catch (err) {
+        console.error('Error clearing order:', err);
+      }
+    }
+
+    fetchOrders();
+    setInterval(fetchOrders, 5000);
+  </script>
+</body>
+</html>
