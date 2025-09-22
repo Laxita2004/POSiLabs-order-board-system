@@ -25,28 +25,50 @@ def save_orders():
 orders = load_orders()
 orders_lock = threading.Lock()
 
+# to ensure orders.json conforms to new schema
+for i, o in enumerate(orders):
+    o.setdefault("phoneNumber", "")
+    o.setdefault("storeLocation", "Default-Store")
+    o.setdefault("orderType", "Takeaway")
+    o.setdefault("status", 1)  # default to Prep
+    o.setdefault("timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+save_orders()
+
 @app.route('/orderstatus', methods=['POST'])
 def update_order_status():
     data = request.json
 
     # Normalize order number to string
     order_number = str(data["orderNumber"])
-    data["orderNumber"] = order_number
-
-    # Add timestamp if not provided
-    if "timestamp" not in data:
-        data["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    phone_number = str(data.get("phoneNumber", ""))
+    store_location = data.get("storeLocation", "Default-Store")
+    order_type = data.get("orderType", "Takeaway")  # dine-in, takeaway, delivery
+    status = int(data.get("status", 1))  # 1=Prep by default
+    timestamp = data.get("timestamp") or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    if status not in [1, 2, 3]:
+        status = 1
+    
+    order_obj = {
+        "orderNumber": order_number,
+        "phoneNumber": phone_number,
+        "storeLocation": store_location,
+        "orderType": order_type,
+        "status": status,
+        "timestamp": timestamp
+    }
 
     with orders_lock:
         for existing in orders:
             if str(existing["orderNumber"]) == order_number:
-                existing.update(data)
+                existing.update(order_obj)
                 break
         else:
-            orders.append(data)
+            orders.append(order_obj)
         save_orders()
 
-    return jsonify({"success": True})
+    return jsonify({"success": True, "order": order_obj})
 
 @app.route('/orders', methods=['GET'])
 def get_orders():
@@ -71,7 +93,7 @@ def cleanup_stale_orders():
         with orders_lock:
             fresh_orders = []
             for order in orders:
-                raw_time = order.get("timestamp") or order.get("statusChangeDateTimeOffset")
+                raw_time = order.get("timestamp")
                 try:
                     order_time = datetime.strptime(raw_time, "%Y-%m-%d %H:%M:%S")
                 except:
