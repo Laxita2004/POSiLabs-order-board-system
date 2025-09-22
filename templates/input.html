@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>New Order</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #f0f0f0, #e0e0e0);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    form {
+      background: #fff;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      width: 350px;
+    }
+
+    h2 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 20px;
+    }
+
+    label {
+      font-weight: bold;
+      margin-top: 10px;
+      display: block;
+    }
+
+    input, select, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 8px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-top: 20px;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    #result {
+      text-align: center;
+      font-weight: bold;
+      margin-top: 15px;
+      color: green;
+    }
+  </style>
+</head>
+<body>
+
+  <form id="posForm">
+    <h2>New Order</h2>
+
+    <label>Phone Number:</label>
+    <input type="text" id="phoneNumber" required placeholder="Enter phone number" maxlength="10" pattern="\d{10}" title="Enter a valid 10-digit phone number">
+
+    <label>Store Location:</label>
+    <select id="storeLocation" required>
+      <option value="Indore-Main">Indore-Main</option>
+      <option value="Indore-Branch2">Indore-Branch2</option>
+    </select>
+
+    <label>Order Type:</label>
+    <select id="orderType" required>
+      <option value="Takeaway">Takeaway</option>
+      <option value="Dine-in">Dine-in</option>
+      <option value="Delivery">Delivery</option>
+    </select>
+
+    <button type="submit">Create Order</button>
+
+    <p id="result"></p>
+  </form>
+
+  <script>
+    const form = document.getElementById('posForm');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const phoneNumber = document.getElementById('phoneNumber').value;
+      const storeLocation = document.getElementById('storeLocation').value;
+      const orderType = document.getElementById('orderType').value;
+
+      // Validate 10-digit number manually as well
+      if (!/^\d{10}$/.test(phoneNumber)) {
+        document.getElementById('result').innerText = "Phone number must be 10 digits!";
+        document.getElementById('result').style.color = "red";
+        return;
+      }
+
+      const orderNumber = Math.floor(Math.random() * 10000).toString();
+
+      try {
+        const response = await fetch('/orderstatus', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderNumber,
+            phoneNumber,
+            storeLocation,
+            orderType,
+            status: 1
+          })
+        });
+
+        const result = await response.json();
+        document.getElementById('result').innerText =
+          result.success ? `✅ Order Created! #${result.order.orderNumber}` : "❌ Error creating order";
+        document.getElementById('result').style.color = result.success ? "green" : "red";
+
+        if(result.success){
+          form.reset();
+        }
+
+      } catch(err) {
+        document.getElementById('result').innerText = "❌ Server error";
+        document.getElementById('result').style.color = "red";
+      }
+    });
+  </script>
+
+</body>
+</html>

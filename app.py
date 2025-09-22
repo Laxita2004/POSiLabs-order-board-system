@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from datetime import datetime, timedelta
 import threading
 import time
@@ -82,6 +82,12 @@ def delete_order(order_number):
         orders = [o for o in orders if str(o['orderNumber']) != str(order_number)]
         save_orders()
     return jsonify({"deleted": order_number})
+
+# input page
+@app.route('/input', methods=['GET'])
+def input_page():
+    return render_template('input.html')
+
 
 # Background cleanup
 def cleanup_stale_orders():
